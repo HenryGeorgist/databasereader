@@ -15,8 +15,7 @@ import java.util.logging.Logger;
  * @author Will_and_Sara
  */
 public class DBFReader extends AbstractReader{
-    private utils.BufferedEndianInputStream _DBFReader;
-    private java.io.BufferedInputStream _DBFSeeker;
+    private utils.RandomAccessEndian _DBFReader;
     private short _FirstDataRecordIndex;
     private short _RecordLength;
     private int[] _Lengths;
@@ -39,8 +38,7 @@ public class DBFReader extends AbstractReader{
             //already open.
         }else{
             try {
-                _DBFReader = new utils.BufferedEndianInputStream(new java.io.FileInputStream(_FilePath));
-                _DBFReader.mark(Integer.MAX_VALUE);
+                _DBFReader = new utils.RandomAccessEndian(_FilePath,"r");
                 _Open = true;
             } catch (FileNotFoundException ex) {
                 System.out.println("The File: " + _FilePath + " could not be found");
@@ -69,8 +67,7 @@ public class DBFReader extends AbstractReader{
     public void Initialize() {
         if(!IsOpen()) Open();
         try {
-            _DBFReader.reset();
-            _DBFReader.skip(4);//byte 0 determines file type and presence of memo fields, 1-3 determine last edited date.
+            _DBFReader.skipBytes(4);//byte 0 determines file type and presence of memo fields, 1-3 determine last edited date.
             _NumberOfRows = _DBFReader.readLittleInt();
             _FirstDataRecordIndex = _DBFReader.readLittleShort();
             _RecordLength = _DBFReader.readLittleShort();
@@ -81,18 +78,18 @@ public class DBFReader extends AbstractReader{
             _Positions = new int [_NumberOfColumns];
             String TmpColName;
             String TmpColType;
-            _DBFReader.skip(3);//reserved
-            _DBFReader.skip(13);//reserved
-            _DBFReader.skip(4);//reserved
+            _DBFReader.skipBytes(3);//reserved
+            _DBFReader.skipBytes(13);//reserved
+            _DBFReader.skipBytes(4);//reserved
             int NumberOfDecimals = 0;
             for(int i = 0; i<_NumberOfColumns;i++){
                 TmpColName = _DBFReader.ReadString(0,10).trim();
                 _ColumnNames[i] = TmpColName;
                 TmpColType = _DBFReader.ReadString(0,2);
-                _DBFReader.skip(4);//advance to 16
+                _DBFReader.skipBytes(4);//advance to 16
                 _Lengths[i] = _DBFReader.read();//advance to 17
                 NumberOfDecimals = _DBFReader.read();//adance to 18
-                _DBFReader.skip(14);//advance to 31 end of field record.
+                _DBFReader.skipBytes(14);//advance to 31 end of field record.
                 switch(TmpColType){
                     case "I":
                         _ColumnTypes[i] = TypeEnum.INT;
@@ -137,8 +134,8 @@ public class DBFReader extends AbstractReader{
     private String getCellAsString(int ColumnIndex, int RowIndex){
         if(!IsOpen()){Open();}
         try {
-            _DBFReader.reset();
-            _DBFReader.skip(_FirstDataRecordIndex+1+(RowIndex*_RecordLength)+_Positions[ColumnIndex]);
+            _DBFReader.seek(0);
+            _DBFReader.skipBytes(_FirstDataRecordIndex+1+(RowIndex*_RecordLength)+_Positions[ColumnIndex]);
             return _DBFReader.ReadString(0, _Lengths[ColumnIndex]);
         } catch (IOException ex) {
             System.out.println("Cannot reset");
@@ -180,12 +177,95 @@ public class DBFReader extends AbstractReader{
 
     @Override
     public Object[] getColumn(String ColumnName) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        int index =java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName);
+        if(index!=-1){return getColumn(index);}
+        return null;
     }
 
     @Override
     public Object[] getColumn(int ColumnIndex) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        if(_ColumnNames.length< ColumnIndex){return null;}
+        if(!IsOpen()){Open();}
+        try {
+            _DBFReader.skipBytes(_FirstDataRecordIndex+1);
+            Object[] result = new Object[_NumberOfRows];
+            int RecordOffset = _Positions[ColumnIndex];
+            int ReadLength = _Lengths[ColumnIndex];
+            int RemainingOffset = _RecordLength - RecordOffset - ReadLength;
+            switch(_ColumnTypes[ColumnIndex]){
+            case STRING:
+                for(int i = 0; i<_NumberOfRows;i++){
+                    //_DBFReader.mark(_RecordLength+1);
+                    _DBFReader.skipBytes(RecordOffset);
+                    result[i] = _DBFReader.ReadString(0, ReadLength);
+                    _DBFReader.skipBytes(RemainingOffset);
+                }
+                break;
+            case DOUBLE:
+                for(int i = 0; i<_NumberOfRows;i++){                    
+                    System.out.println(i);
+                    if(RecordOffset != _DBFReader.skipBytes(RecordOffset)){
+                        System.out.println("Skip Failure");
+                        //_DBFReader.mark(Integer.MAX_VALUE);
+                        //_DBFReader.reset();
+                        //_DBFReader.skipBytes(RecordOffset);
+                    }else{
+                        //_DBFReader.skipBytes(RecordOffset);
+                    }
+                    String test =_DBFReader.ReadString(0, ReadLength);
+                    System.out.println(test);
+                    result[i] = Double.parseDouble(test);
+                    System.out.println(result[i]);
+                    if(RemainingOffset != _DBFReader.skipBytes(RemainingOffset)){
+                        System.out.println("Skip Failure");
+                        //_DBFReader.mark(Integer.MAX_VALUE);
+                        //_DBFReader.reset();
+                        //_DBFReader.skip(RemainingOffset);
+                    }else{
+                        //_DBFReader.skip(RemainingOffset);
+                    }//
+                }
+                break;              
+            case INT:
+                for(int i = 0; i<_NumberOfRows;i++){
+                    //_DBFReader.mark(_RecordLength + 1);
+                    _DBFReader.skipBytes(RecordOffset);
+                    result[i] = Integer.parseInt(_DBFReader.ReadString(0, ReadLength));
+                    _DBFReader.skipBytes(RemainingOffset);
+                }
+                break;               
+            case BOOLEAN:
+                for(int i = 0; i<_NumberOfRows;i++){
+                    //_DBFReader.mark(_RecordLength + 1);
+                    _DBFReader.skipBytes(RecordOffset);
+                    result[i] = _DBFReader.ReadString(0, ReadLength);
+                    _DBFReader.skipBytes(RemainingOffset);
+                }
+                break;               
+            case DATE:
+                for(int i = 0; i<_NumberOfRows;i++){
+                    //_DBFReader.markBytes(_RecordLength + 1);
+                    _DBFReader.skipBytes(RecordOffset);
+                    result[i] = _DBFReader.ReadString(0, ReadLength);
+                    _DBFReader.skipBytes(RemainingOffset);
+                }
+                break;                
+            default:
+                for(int i = 0; i<_NumberOfRows;i++){
+                    //_DBFReader.mark(_RecordLength + 1);
+                    _DBFReader.skipBytes(RecordOffset);
+                    result[i] = _DBFReader.ReadString(0, ReadLength);
+                    _DBFReader.skipBytes(RemainingOffset);
+                }
+                break;                                 
+            }
+            Close();
+            return result;
+        } catch (IOException ex) {
+            Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+            Close();
+            return null;
+        }
     }
 
     @Override
