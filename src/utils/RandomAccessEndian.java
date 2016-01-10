@@ -4,20 +4,18 @@
  * and open the template in the editor.
  */
 package utils;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
-
 /**
- *
- * @author Will_and_Sara
+ * A simple extention to the RandomAccessFile that allows the user to read big endian (through the existing calls) and little endian
+ * (through the extended calls).
+ * @author Will_and_Sara informed by: Bill unspecified.specification@gmail. http://stackoverflow.com/questions/8028094/java-datainputstream-replacement-for-endianness
  */
 public class RandomAccessEndian extends java.io.RandomAccessFile {
-    
     public RandomAccessEndian(String name, String mode) throws FileNotFoundException {
         super(name, mode);
     }
-        /**
+     /**
      * Reads floating point type stored in little endian (see readFloat() for big endian)
      * @return float value translated from little endian
      * @throws IOException if an IO error occurs
@@ -87,6 +85,14 @@ public class RandomAccessEndian extends java.io.RandomAccessFile {
         read(byteBuffer, 0, 2);
         return ((byteBuffer[1] & 0xff) << 8 | (byteBuffer[0] & 0xff));
     }
+    /**
+     * Reads a sequence of bytes based on the start position (offset from current position) and the end position, and converts the byte
+     * array to a string skipping bytes of 0.
+     * @param start the offset byte position from the current byte position in the RandomAccessFileStream
+     * @param end the end byte position from the current byte position in the RandomAccessFileStream
+     * @return a string 
+     * @throws IOException
+     */
     public String ReadString(int start, int end) throws IOException{
         byte[] bytes = new byte[end-start];
         if(start!=0){skipBytes(start);}

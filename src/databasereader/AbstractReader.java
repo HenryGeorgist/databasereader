@@ -4,10 +4,9 @@
  * and open the template in the editor.
  */
 package databasereader;
-
 /**
- *
- * @author Will_and_Sara
+ * An abstract class that defines standard entry points for reading databases, this can be extended for any standard database.
+ * @author Will_and_Sara influenced greatly by the readers built by Woody Fields in vb.net.
  */
 public abstract class AbstractReader {
     protected boolean _Open = false;
@@ -18,7 +17,7 @@ public abstract class AbstractReader {
     protected int _NumberOfColumns;
     public String getFilePath(){return _FilePath;}
     public String[] getColumnNames(){return _ColumnNames;}
-    //getColumnTypes()
+    public TypeEnum[] getColumnTypes(){return _ColumnTypes;}
     public int getNumberOfRows(){return _NumberOfRows;}
     public int getNumberOfColumns(){return _NumberOfColumns;}
     public boolean IsOpen(){return _Open;}
