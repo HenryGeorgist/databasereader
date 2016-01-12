@@ -7,6 +7,7 @@ package databasereader;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Calendar;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -57,8 +58,8 @@ public class DBFReader extends AbstractReader{
             }            
         }//else it is already closed, so dont try.
     }
-//http://www.oocities.org/geoff_wass/dBASE/GaryWhite/dBASE/FAQ/qformt.htm   //dbase IV spec, has the first 32 bits right        
-//http://www.dbase.com/KnowledgeBase/int/db7_file_fmt.htm //info on other field types that might be supported.
+    //http://www.oocities.org/geoff_wass/dBASE/GaryWhite/dBASE/FAQ/qformt.htm   //dbase IV spec, has the first 32 bits right        
+    //http://www.dbase.com/KnowledgeBase/int/db7_file_fmt.htm //info on other field types that might be supported.
     /**
      *Initializes the dbf by reading the header, which contains information that describes the columns and rows of the dbf.
      */
@@ -141,6 +142,13 @@ public class DBFReader extends AbstractReader{
             Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
         }
         return null;        
+    }
+    private String PadString(String string, int finallength){
+        java.lang.StringBuilder s = new java.lang.StringBuilder(string);
+        for(int i = string.length(); i < finallength+1;i++){
+            s.append((char)32);
+        }
+        return s.toString();
     }
     @Override
     public Object getCell(int ColumnIndex, int RowIndex) {
@@ -283,6 +291,77 @@ public class DBFReader extends AbstractReader{
     }
     @Override
     public void AddColumn(String ColumnName, boolean[] data) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void EditColumn(String ColumnName, int[] data) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void EditColumn(String ColumnName, String[] data) {
+        int index =java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName);
+        if(index!=-1){
+            if(TypeEnum.STRING==_ColumnTypes[index]){
+                if(_NumberOfRows==data.length){
+                    if(IsOpen()){Close();}//so that we can change the data.
+                    java.io.RandomAccessFile writer = null;
+                    try {
+                        writer = new java.io.RandomAccessFile(_FilePath,"rwd");
+                        writer.seek(1);
+                        byte[] dateofedit = new byte[3];
+                        dateofedit[0] = (byte)(Calendar.getInstance().get(Calendar.YEAR)-1900);
+                        dateofedit[1] = (byte)java.time.LocalDate.now().getMonth().getValue();//will be 1 -12 i think i want 01 to 12..
+                        dateofedit[2] = (byte)java.time.LocalDate.now().getDayOfMonth();
+                        writer.write(dateofedit);
+                        int rowOffset = 0;
+                        for(int i = 0; i < index;i++){
+                            rowOffset+= _Lengths[i];
+                        }
+                        writer.seek(_FirstDataRecordIndex+1);
+                        for(int i = 0; i < _NumberOfRows;i++){
+                            writer.skipBytes(rowOffset);
+                            if(_Lengths[i]>data[i].length()){
+                                writer.writeBytes(PadString(data[i],_Lengths[i]));
+                            }else{
+                                writer.writeBytes(data[i].substring(0, _Lengths[i]));
+                            }
+                            writer.skipBytes(_RecordLength - (_Lengths[index]+rowOffset));
+                        }
+                        writer.close();
+                    } catch (FileNotFoundException ex) {
+                        //file could not be written to.
+                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (IOException ex) {
+                        //io exception
+                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+                        if(writer!=null){
+                            try {
+                                writer.close();
+                            } catch (IOException ex1) {
+                                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex1);
+                            }
+                        }
+                    }
+                }else{
+                    //not consistent number of rows.
+                }
+            }else{
+                //column type is not consistent with string.
+            }
+        }else{
+            //column name is not found in the current column list, try add column
+        }
+    }
+
+    @Override
+    public void EditColumn(String ColumnName, double[] data) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void EditColumn(String ColumnName, boolean[] data) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }

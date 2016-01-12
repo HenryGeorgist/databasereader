@@ -34,4 +34,8 @@ public abstract class AbstractReader {
     public abstract void AddColumn(String ColumnName, String[] data);
     public abstract void AddColumn(String ColumnName, double[] data);
     public abstract void AddColumn(String ColumnName, boolean[] data);
+    public abstract void EditColumn(String ColumnName, int[] data);
+    public abstract void EditColumn(String ColumnName, String[] data);
+    public abstract void EditColumn(String ColumnName, double[] data);
+    public abstract void EditColumn(String ColumnName, boolean[] data);
 }
