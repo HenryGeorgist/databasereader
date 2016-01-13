@@ -143,6 +143,17 @@ public class DBFReader extends AbstractReader{
         }
         return null;        
     }
+    private String RemoveSpaces(String Input){
+       java.lang.StringBuilder s = new java.lang.StringBuilder();
+       String character = "";
+       for(int i = 0; i<Input.length();i++){
+           character = Character.toString(Input.charAt(i));
+           if(!character.equals(" ")){
+           s.append(character);
+           }
+       }
+       return s.toString();
+    }
     private String PadString(String string, int finallength){
         java.lang.StringBuilder s = new java.lang.StringBuilder(string);
         for(int i = string.length(); i < finallength+1;i++){
@@ -183,16 +194,22 @@ public class DBFReader extends AbstractReader{
                     switch(_ColumnTypes[ColumnIndex]){
                         case STRING:
                             result[ColumnIndex] = _DBFReader.ReadString(0, _Lengths[ColumnIndex]);
+                            break;
                         case DOUBLE:
                             result[ColumnIndex] = Double.parseDouble(_DBFReader.ReadString(0, _Lengths[ColumnIndex]));
+                            break;
                         case INT:
-                            result[ColumnIndex] = Integer.parseInt(_DBFReader.ReadString(0, _Lengths[ColumnIndex]));
+                            result[ColumnIndex] = Integer.parseInt(RemoveSpaces(_DBFReader.ReadString(0, _Lengths[ColumnIndex])));//will be slow.
+                            break;
                         case BOOLEAN:
                             result[ColumnIndex] = Boolean.parseBoolean(_DBFReader.ReadString(0, _Lengths[ColumnIndex]));
+                            break;
                         case DATE:
                             result[ColumnIndex] = _DBFReader.ReadString(0, _Lengths[ColumnIndex]);
+                            break;
                         default:
-                            result[ColumnIndex] = _DBFReader.ReadString(0, _Lengths[ColumnIndex]);           
+                            result[ColumnIndex] = _DBFReader.ReadString(0, _Lengths[ColumnIndex]);
+                            break;
                     }
                 }
                 return result;
@@ -243,7 +260,7 @@ public class DBFReader extends AbstractReader{
             case INT:
                 for(int i = 0; i<_NumberOfRows;i++){
                     if(RecordOffset != _DBFReader.skipBytes(RecordOffset)){System.out.println("Skip Failure");}
-                    result[i] = Integer.parseInt(_DBFReader.ReadString(0, ReadLength));
+                    result[i] = Integer.parseInt(RemoveSpaces(_DBFReader.ReadString(0, ReadLength)));
                     if(RemainingOffset != _DBFReader.skipBytes(RemainingOffset)){System.out.println("Skip Failure");}
                 }
                 break;               
