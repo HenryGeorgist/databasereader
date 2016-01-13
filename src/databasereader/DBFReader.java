@@ -293,10 +293,59 @@ public class DBFReader extends AbstractReader{
     public void AddColumn(String ColumnName, boolean[] data) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-
+    private void UpdateEditDate(java.io.RandomAccessFile writer) throws IOException{
+        writer.seek(1);
+        byte[] dateofedit = new byte[3];
+        dateofedit[0] = (byte)(Calendar.getInstance().get(Calendar.YEAR)-1900);
+        dateofedit[1] = (byte)java.time.LocalDate.now().getMonth().getValue();//will be 1 -12 i think i want 01 to 12..
+        dateofedit[2] = (byte)java.time.LocalDate.now().getDayOfMonth();
+        writer.write(dateofedit);
+    }
     @Override
     public void EditColumn(String ColumnName, int[] data) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        int index =java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName);
+        if(index!=-1){
+            if(TypeEnum.INT==_ColumnTypes[index]){
+                if(_NumberOfRows==data.length){
+                    if(IsOpen()){Close();}//so that we can change the data.
+                    java.io.RandomAccessFile writer = null;
+                    try {
+                        writer = new java.io.RandomAccessFile(_FilePath,"rwd");
+                        UpdateEditDate(writer);
+                        int rowOffset = 0;
+                        for(int i = 0; i < index;i++){
+                            rowOffset+= _Lengths[i];
+                        }
+                        writer.seek(_FirstDataRecordIndex+1);
+                        for(int i = 0; i < _NumberOfRows;i++){
+                            writer.skipBytes(rowOffset);
+                            writer.writeBytes(PadString(Integer.toString(data[i]),_Lengths[i]));//if lengths is not a maxint length, then there could ultimately be problems
+                            writer.skipBytes(_RecordLength - (_Lengths[index]+rowOffset));
+                        }
+                        writer.close();
+                    } catch (FileNotFoundException ex) {
+                        //file could not be written to.
+                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (IOException ex) {
+                        //io exception
+                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+                        if(writer!=null){
+                            try {
+                                writer.close();
+                            } catch (IOException ex1) {
+                                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex1);
+                            }
+                        }
+                    }
+                }else{
+                    //not consistent number of rows.
+                }
+            }else{
+                //column type is not consistent with string.
+            }
+        }else{
+            //column name is not found in the current column list, try add column
+        }
     }
 
     @Override
@@ -309,12 +358,7 @@ public class DBFReader extends AbstractReader{
                     java.io.RandomAccessFile writer = null;
                     try {
                         writer = new java.io.RandomAccessFile(_FilePath,"rwd");
-                        writer.seek(1);
-                        byte[] dateofedit = new byte[3];
-                        dateofedit[0] = (byte)(Calendar.getInstance().get(Calendar.YEAR)-1900);
-                        dateofedit[1] = (byte)java.time.LocalDate.now().getMonth().getValue();//will be 1 -12 i think i want 01 to 12..
-                        dateofedit[2] = (byte)java.time.LocalDate.now().getDayOfMonth();
-                        writer.write(dateofedit);
+                        UpdateEditDate(writer);
                         int rowOffset = 0;
                         for(int i = 0; i < index;i++){
                             rowOffset+= _Lengths[i];
@@ -354,7 +398,6 @@ public class DBFReader extends AbstractReader{
             //column name is not found in the current column list, try add column
         }
     }
-
     @Override
     public void EditColumn(String ColumnName, double[] data) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
