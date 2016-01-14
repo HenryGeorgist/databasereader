@@ -154,6 +154,23 @@ public class DBFReader extends AbstractReader{
        }
        return s.toString();
     }
+    private String RemoveLeadingSpaces(String Input){
+       java.lang.StringBuilder s = new java.lang.StringBuilder();
+       boolean FirstCharacter = false;
+       String character = "";
+       for(int i = 0; i<Input.length();i++){
+           character = Character.toString(Input.charAt(i));
+           if(!FirstCharacter){
+                if(!character.equals(" ")){
+                    FirstCharacter = true;
+                    s.append(character);
+                }
+           }else{
+               s.append(character);
+           }
+       }
+       return s.toString();
+    }
     private String PadString(String string, int finallength){
         java.lang.StringBuilder s = new java.lang.StringBuilder(string);
         for(int i = string.length(); i < finallength+1;i++){
@@ -294,13 +311,65 @@ public class DBFReader extends AbstractReader{
             return null;
         }
     }
+    private void WriteNewHeader(String NewColumnName, int NewFieldLength, String ColumnType, java.io.RandomAccessFile Writer){
+        try {
+            UpdateEditDate(Writer);
+            Writer.writeInt(_NumberOfRows);
+            Writer.writeShort(_FirstDataRecordIndex + 32);
+            Writer.writeShort(_RecordLength + NewFieldLength);
+            //the next 20 bytes are reserved.
+            byte reservedBytes[] = new byte[20];
+            _DBFReader.read(reservedBytes,0,20);
+            Writer.write(reservedBytes);
+            //now write the new header infos.
+            for(int i = 0; i < _ColumnNames.length;i++){
+                Writer.writeChars(_ColumnNames[i]);//must be the next 10 bytes
+                //Writer.writeChars(_ColumnTypes[i]);//must be the right string, and must be 2 bytes.
+                //_DBFReader.read(reservedBytes,0,4);//position needs to be set properly...
+                //Writer.write(reservedBytes, 0, 4);//next four bytes are reserved
+                Writer.write(_Lengths[i]);//length (as a byte actually).
+                //number of decimals//how do i determine number of decimals?
+                //_DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
+                //Writer.write(reservedBytes,0,14)
+                
+                
+            }
+            //now write out the info for the new column
+            Writer.writeChars(NewColumnName);//must be the next 10 bytes
+            //Writer.writeChars(ColumnType);//must be the right string, and must be 2 bytes.
+            //_DBFReader.read(reservedBytes,0,4);//position needs to be set properly...
+            //Writer.write(reservedBytes, 0, 4);//next four bytes are reserved
+            Writer.write(NewFieldLength);//length (as a byte actually).
+            //number of decimals//how do i determine number of decimals?
+            //_DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
+            //Writer.write(reservedBytes,0,14)
+            
+        } catch (IOException ex) {
+            Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+    }
     @Override
     public void AddColumn(String ColumnName, int[] data) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
     @Override
+    
     public void AddColumn(String ColumnName, String[] data) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        if(ColumnName.length()<=10){
+            if(java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName)==-1){
+                if(_NumberOfRows==data.length){
+                    if(!IsOpen()){Open();}//so that we can read the data.
+                    //create a tmp file to write everythign into.
+                    //create a writer from the tmp file.
+                    int newfieldlength = 0;
+                    for(int i = 0; i<data.length;i++){
+                        if(data[i].length()>newfieldlength){newfieldlength = data[i].length();}
+                    }
+                    //WriteNewHeader(ColumnName, NewFieldLenth,"C",Writer);
+                }//not the right number of rows.
+            }//name already existis
+        }//name too long
     }
     @Override
     public void AddColumn(String ColumnName, double[] data) {
@@ -329,10 +398,7 @@ public class DBFReader extends AbstractReader{
                     try {
                         writer = new java.io.RandomAccessFile(_FilePath,"rwd");
                         UpdateEditDate(writer);
-                        int rowOffset = 0;
-                        for(int i = 0; i < index;i++){
-                            rowOffset+= _Lengths[i];
-                        }
+                        int rowOffset = _Positions[index];
                         writer.seek(_FirstDataRecordIndex+1);
                         for(int i = 0; i < _NumberOfRows;i++){
                             writer.skipBytes(rowOffset);
@@ -358,13 +424,12 @@ public class DBFReader extends AbstractReader{
                     //not consistent number of rows.
                 }
             }else{
-                //column type is not consistent with string.
+                //column type is not consistent with int.
             }
         }else{
             //column name is not found in the current column list, try add column
         }
     }
-
     @Override
     public void EditColumn(String ColumnName, String[] data) {
         int index =java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName);
@@ -376,10 +441,7 @@ public class DBFReader extends AbstractReader{
                     try {
                         writer = new java.io.RandomAccessFile(_FilePath,"rwd");
                         UpdateEditDate(writer);
-                        int rowOffset = 0;
-                        for(int i = 0; i < index;i++){
-                            rowOffset+= _Lengths[i];
-                        }
+                        int rowOffset = _Positions[index];
                         writer.seek(_FirstDataRecordIndex+1);
                         for(int i = 0; i < _NumberOfRows;i++){
                             writer.skipBytes(rowOffset);
@@ -419,9 +481,51 @@ public class DBFReader extends AbstractReader{
     public void EditColumn(String ColumnName, double[] data) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-
     @Override
     public void EditColumn(String ColumnName, boolean[] data) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        int index =java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName);
+        if(index!=-1){
+            if(TypeEnum.BOOLEAN==_ColumnTypes[index]){
+                if(_NumberOfRows==data.length){
+                    if(IsOpen()){Close();}//so that we can change the data.
+                    java.io.RandomAccessFile writer = null;
+                    try {
+                        writer = new java.io.RandomAccessFile(_FilePath,"rwd");
+                        UpdateEditDate(writer);
+                        int rowOffset = _Positions[index];
+                        writer.seek(_FirstDataRecordIndex+1);
+                        for(int i = 0; i < _NumberOfRows;i++){
+                            writer.skipBytes(rowOffset);
+                            if(data[i]){
+                                writer.writeBytes("1");//what if the lengths are not set properly?
+                            }else{
+                                writer.writeBytes("0");
+                            }
+                            writer.skipBytes(_RecordLength - (_Lengths[index]+rowOffset));
+                        }
+                        writer.close();
+                    } catch (FileNotFoundException ex) {
+                        //file could not be written to.
+                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (IOException ex) {
+                        //io exception
+                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+                        if(writer!=null){
+                            try {
+                                writer.close();
+                            } catch (IOException ex1) {
+                                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex1);
+                            }
+                        }
+                    }
+                }else{
+                    //not consistent number of rows.
+                }
+            }else{
+                //column type is not consistent with boolean.
+            }
+        }else{
+            //column name is not found in the current column list, try add column
+        }
     }
 }
