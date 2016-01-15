@@ -317,6 +317,8 @@ public class DBFReader extends AbstractReader{
             Writer.writeInt(_NumberOfRows);
             Writer.writeShort(_FirstDataRecordIndex + 32);
             Writer.writeShort(_RecordLength + NewFieldLength);
+            _DBFReader.seek(0);
+            _DBFReader.seek(11);
             //the next 20 bytes are reserved.
             byte reservedBytes[] = new byte[20];
             _DBFReader.read(reservedBytes,0,20);
@@ -324,26 +326,42 @@ public class DBFReader extends AbstractReader{
             //now write the new header infos.
             for(int i = 0; i < _ColumnNames.length;i++){
                 Writer.writeChars(_ColumnNames[i]);//must be the next 10 bytes
-                //Writer.writeChars(_ColumnTypes[i]);//must be the right string, and must be 2 bytes.
-                //_DBFReader.read(reservedBytes,0,4);//position needs to be set properly...
-                //Writer.write(reservedBytes, 0, 4);//next four bytes are reserved
+                switch(_ColumnTypes[i]){
+                    case STRING:
+                        Writer.writeChars("C");
+                        break;
+                    case INT:
+                        Writer.writeChars("N");
+                        break;
+                    case BOOLEAN:
+                        Writer.writeChars("L");
+                        break;
+                    case DOUBLE:
+                        Writer.writeChars("F");
+                        break;
+                    case DATE:
+                        Writer.writeChars("D");
+                        break;
+                    default:
+                        Writer.writeChars("C");
+                        break;
+                }
+                _DBFReader.skipBytes(11);
+                _DBFReader.read(reservedBytes,0,4);//position needs to be set properly...
+                Writer.write(reservedBytes, 0, 4);//next four bytes are reserved
                 Writer.write(_Lengths[i]);//length (as a byte actually).
-                //number of decimals//how do i determine number of decimals?
-                //_DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
-                //Writer.write(reservedBytes,0,14)
-                
-                
+                Writer.write(0);//number of decimals//how do i determine number of decimals?
+                _DBFReader.skipBytes(2);
+                _DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
+                Writer.write(reservedBytes,0,14); 
             }
             //now write out the info for the new column
-            Writer.writeChars(NewColumnName);//must be the next 10 bytes
-            //Writer.writeChars(ColumnType);//must be the right string, and must be 2 bytes.
-            //_DBFReader.read(reservedBytes,0,4);//position needs to be set properly...
-            //Writer.write(reservedBytes, 0, 4);//next four bytes are reserved
+            Writer.writeChars(PadString(NewColumnName,10));//must be the next 10 bytes
+            Writer.writeChars(ColumnType);//must be the right string, and must be 2 bytes.
+            Writer.skipBytes(4);//next four bytes are reserved
             Writer.write(NewFieldLength);//length (as a byte actually).
-            //number of decimals//how do i determine number of decimals?
-            //_DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
-            //Writer.write(reservedBytes,0,14)
-            
+            Writer.write(0);//number of decimals//how do i determine number of decimals?
+            Writer.skipBytes(14);//_DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
         } catch (IOException ex) {
             Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -360,13 +378,43 @@ public class DBFReader extends AbstractReader{
             if(java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName)==-1){
                 if(_NumberOfRows==data.length){
                     if(!IsOpen()){Open();}//so that we can read the data.
-                    //create a tmp file to write everythign into.
-                    //create a writer from the tmp file.
-                    int newfieldlength = 0;
-                    for(int i = 0; i<data.length;i++){
-                        if(data[i].length()>newfieldlength){newfieldlength = data[i].length();}
+                    java.io.RandomAccessFile Writer = null;
+                    try {
+                        //create a tmp file to write everythign into.
+                        java.io.File TMP = java.io.File.createTempFile("TMP", ".dbf");
+                        Writer = new java.io.RandomAccessFile(TMP,"rwd");
+                        int newfieldlength = 0;
+                        for(int i = 0; i<data.length;i++){
+                            if(data[i].length()>newfieldlength){newfieldlength = data[i].length();}
+                        }
+                        WriteNewHeader(ColumnName, newfieldlength,"C",Writer);
+                        //write out all rows.
+                        _DBFReader.seek(0);
+                        _DBFReader.seek(_FirstDataRecordIndex + 1);
+                        byte[] ExistingData = new byte[_RecordLength];
+                        for(int i = 0; i<data.length;i++){
+                            _DBFReader.read(ExistingData,0,_RecordLength);
+                            Writer.write(ExistingData);
+                            Writer.writeChars(PadString(data[i],newfieldlength));
+                        }
+                        if(IsOpen()){Close();}//delete old file, copy tmp file then delete old tmp file
+                        Writer.close();
+                        java.io.File currentFile = new java.io.File(_FilePath);
+                        currentFile.delete();
+                        java.nio.file.Files.copy(TMP.toPath(), currentFile.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        TMP.delete();
+                        Initialize();
+                    } catch (IOException ex) {
+                        if(Writer!=null){
+                            try {
+                                Writer.close();
+                            } catch (IOException ex1) {
+                                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex1);
+                            }
+                        }
+                        Close();
+                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    //WriteNewHeader(ColumnName, NewFieldLenth,"C",Writer);
                 }//not the right number of rows.
             }//name already existis
         }//name too long
