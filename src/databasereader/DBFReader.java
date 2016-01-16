@@ -187,7 +187,7 @@ public class DBFReader extends AbstractReader{
             case DOUBLE:
                 return Double.parseDouble(resultAsString);
             case INT:
-                return Integer.parseInt(resultAsString);
+                return Integer.parseInt(RemoveSpaces(resultAsString));
             case BOOLEAN:
                 return Boolean.parseBoolean(resultAsString);
             case DATE:
@@ -311,7 +311,7 @@ public class DBFReader extends AbstractReader{
             return null;
         }
     }
-    private void WriteNewHeader(String NewColumnName, int NewFieldLength, String ColumnType, java.io.RandomAccessFile Writer){
+    private void WriteNewHeader(String NewColumnName, int NewFieldLength, String ColumnType, int newFieldNumDecimals, java.io.RandomAccessFile Writer){
         try {
             UpdateEditDate(Writer);
             Writer.writeInt(_NumberOfRows);
@@ -325,7 +325,7 @@ public class DBFReader extends AbstractReader{
             Writer.write(reservedBytes);
             //now write the new header infos.
             for(int i = 0; i < _ColumnNames.length;i++){
-                Writer.writeChars(_ColumnNames[i]);//must be the next 10 bytes
+                Writer.writeChars(PadString(_ColumnNames[i],10));//must be the next 10 bytes
                 switch(_ColumnTypes[i]){
                     case STRING:
                         Writer.writeChars("C");
@@ -350,8 +350,8 @@ public class DBFReader extends AbstractReader{
                 _DBFReader.read(reservedBytes,0,4);//position needs to be set properly...
                 Writer.write(reservedBytes, 0, 4);//next four bytes are reserved
                 Writer.write(_Lengths[i]);//length (as a byte actually).
-                Writer.write(0);//number of decimals//how do i determine number of decimals?
-                _DBFReader.skipBytes(2);
+                _DBFReader.skipBytes(1);
+                Writer.write(_DBFReader.read());//number of decimals
                 _DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
                 Writer.write(reservedBytes,0,14); 
             }
@@ -369,7 +369,47 @@ public class DBFReader extends AbstractReader{
     }
     @Override
     public void AddColumn(String ColumnName, int[] data) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        if(ColumnName.length()<=10){
+            if(java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName)==-1){
+                if(_NumberOfRows==data.length){
+                    if(!IsOpen()){Open();}//so that we can read the data.
+                    java.io.RandomAccessFile Writer = null;
+                    try {
+                        //create a tmp file to write everythign into.
+                        java.io.File TMP = java.io.File.createTempFile("TMP", ".dbf");
+                        Writer = new java.io.RandomAccessFile(TMP,"rwd");
+                        int newfieldlength = Integer.toString(Integer.MIN_VALUE).length();//negatives?
+                        WriteNewHeader(ColumnName, newfieldlength,"C",0,Writer);
+                        //write out all rows.
+                        _DBFReader.seek(0);
+                        _DBFReader.seek(_FirstDataRecordIndex + 1);
+                        byte[] ExistingData = new byte[_RecordLength];
+                        for(int i = 0; i<data.length;i++){
+                            _DBFReader.read(ExistingData,0,_RecordLength);
+                            Writer.write(ExistingData);
+                            Writer.writeChars(PadString(Integer.toString(data[i]),newfieldlength));
+                        }
+                        if(IsOpen()){Close();}//delete old file, copy tmp file then delete old tmp file
+                        Writer.close();
+                        java.io.File currentFile = new java.io.File(_FilePath);
+                        currentFile.delete();
+                        java.nio.file.Files.copy(TMP.toPath(), currentFile.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        TMP.delete();
+                        Initialize();
+                    } catch (IOException ex) {
+                        if(Writer!=null){
+                            try {
+                                Writer.close();
+                            } catch (IOException ex1) {
+                                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex1);
+                            }
+                        }
+                        Close();
+                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }//not the right number of rows.
+            }//name already existis
+        }//name too long
     }
     @Override
     
@@ -387,7 +427,7 @@ public class DBFReader extends AbstractReader{
                         for(int i = 0; i<data.length;i++){
                             if(data[i].length()>newfieldlength){newfieldlength = data[i].length();}
                         }
-                        WriteNewHeader(ColumnName, newfieldlength,"C",Writer);
+                        WriteNewHeader(ColumnName, newfieldlength,"C",0,Writer);
                         //write out all rows.
                         _DBFReader.seek(0);
                         _DBFReader.seek(_FirstDataRecordIndex + 1);
@@ -450,7 +490,7 @@ public class DBFReader extends AbstractReader{
                         writer.seek(_FirstDataRecordIndex+1);
                         for(int i = 0; i < _NumberOfRows;i++){
                             writer.skipBytes(rowOffset);
-                            writer.writeBytes(PadString(Integer.toString(data[i]),_Lengths[i]));//if lengths is not a maxint length, then there could ultimately be problems
+                            writer.writeChars(PadString(Integer.toString(data[i]),_Lengths[index]));//if lengths is not a maxint length, then there could ultimately be problems
                             writer.skipBytes(_RecordLength - (_Lengths[index]+rowOffset));
                         }
                         writer.close();
@@ -494,9 +534,9 @@ public class DBFReader extends AbstractReader{
                         for(int i = 0; i < _NumberOfRows;i++){
                             writer.skipBytes(rowOffset);
                             if(_Lengths[i]>data[i].length()){
-                                writer.writeBytes(PadString(data[i],_Lengths[i]));
+                                writer.writeBytes(PadString(data[i],_Lengths[index]));
                             }else{
-                                writer.writeBytes(data[i].substring(0, _Lengths[i]));
+                                writer.writeBytes(data[i].substring(0, _Lengths[index]));
                             }
                             writer.skipBytes(_RecordLength - (_Lengths[index]+rowOffset));
                         }
