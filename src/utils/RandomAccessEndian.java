@@ -93,7 +93,7 @@ public class RandomAccessEndian extends java.io.RandomAccessFile {
      * @return a string 
      * @throws IOException
      */
-    public String ReadString(int start, int end) throws IOException{
+    public final String ReadString(int start, int end) throws IOException{
         byte[] bytes = new byte[end-start];
         if(start!=0){skipBytes(start);}
         read(bytes,0,end-start);

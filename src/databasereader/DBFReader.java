@@ -7,6 +7,7 @@ package databasereader;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Calendar;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -48,7 +49,7 @@ public class DBFReader extends AbstractReader{
         }
     }
     @Override
-    public void Close() {
+    public void Close() {//consider calling this line in the destructor if(IsOpen()){Close();}
         if(IsOpen()){
             try {
                 _DBFReader.close();
@@ -314,18 +315,21 @@ public class DBFReader extends AbstractReader{
     private void WriteNewHeader(String NewColumnName, int NewFieldLength, String ColumnType, int newFieldNumDecimals, java.io.RandomAccessFile Writer){
         try {
             UpdateEditDate(Writer);
-            Writer.writeInt(_NumberOfRows);
-            Writer.writeShort(_FirstDataRecordIndex + 32);
-            Writer.writeShort(_RecordLength + NewFieldLength);
+            Writer.writeInt(Integer.reverseBytes(_NumberOfRows));
+            Writer.writeShort(Short.reverseBytes((short)(_FirstDataRecordIndex + 32)));//needs to be little endian
+            Writer.writeShort(Short.reverseBytes((short)(_RecordLength + NewFieldLength)));//needs to be little endian
             _DBFReader.seek(0);
-            _DBFReader.seek(11);
+            _DBFReader.seek(12);
             //the next 20 bytes are reserved.
             byte reservedBytes[] = new byte[20];
             _DBFReader.read(reservedBytes,0,20);
+            //_DBFReader.skipBytes(1);
+            //System.out.println(_DBFReader.ReadString(0, 11));
             Writer.write(reservedBytes);
             //now write the new header infos.
             for(int i = 0; i < _ColumnNames.length;i++){
-                Writer.writeChars(PadString(_ColumnNames[i],10));//must be the next 10 bytes
+                Writer.writeChars(PadString(_ColumnNames[i],10));//must be the next 11 bytes
+                //Writer.skipBytes(1);
                 switch(_ColumnTypes[i]){
                     case STRING:
                         Writer.writeChars("C");
@@ -346,12 +350,14 @@ public class DBFReader extends AbstractReader{
                         Writer.writeChars("C");
                         break;
                 }
-                _DBFReader.skipBytes(11);
+                _DBFReader.skipBytes(12);//columnName and column type
+                reservedBytes = new byte[4];//reserved bytes...
                 _DBFReader.read(reservedBytes,0,4);//position needs to be set properly...
                 Writer.write(reservedBytes, 0, 4);//next four bytes are reserved
                 Writer.write(_Lengths[i]);//length (as a byte actually).
-                _DBFReader.skipBytes(1);
-                Writer.write(_DBFReader.read());//number of decimals
+                _DBFReader.skipBytes(1);//the length byte
+                Writer.write(_DBFReader.read());//number of decimals //directly from the bytestream
+                reservedBytes = new byte[14];
                 _DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
                 Writer.write(reservedBytes,0,14); 
             }
@@ -362,6 +368,7 @@ public class DBFReader extends AbstractReader{
             Writer.write(NewFieldLength);//length (as a byte actually).
             Writer.write(0);//number of decimals//how do i determine number of decimals?
             Writer.skipBytes(14);//_DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
+            System.out.println("Finished with header");
         } catch (IOException ex) {
             Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -384,6 +391,7 @@ public class DBFReader extends AbstractReader{
                         _DBFReader.seek(0);
                         _DBFReader.seek(_FirstDataRecordIndex + 1);
                         byte[] ExistingData = new byte[_RecordLength];
+                        System.out.println("WritingData");
                         for(int i = 0; i<data.length;i++){
                             _DBFReader.read(ExistingData,0,_RecordLength);
                             Writer.write(ExistingData);
@@ -392,6 +400,7 @@ public class DBFReader extends AbstractReader{
                         if(IsOpen()){Close();}//delete old file, copy tmp file then delete old tmp file
                         Writer.close();
                         java.io.File currentFile = new java.io.File(_FilePath);
+                        System.out.println("Complete,now deleting and copying.");
                         currentFile.delete();
                         java.nio.file.Files.copy(TMP.toPath(), currentFile.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                         TMP.delete();
