@@ -17,7 +17,7 @@ import java.util.logging.Logger;
  * @author Will_and_Sara
  */
 public class DBFReader extends AbstractReader{
-    private utils.RandomAccessEndian _DBFReader;
+    private utils.ByteBufferEndian _DBFReader;
     private short _FirstDataRecordIndex;
     private short _RecordLength;
     private int[] _Lengths;
@@ -39,13 +39,14 @@ public class DBFReader extends AbstractReader{
         if(IsOpen()){
             //already open.
         }else{
-            try {
-                _DBFReader = new utils.RandomAccessEndian(_FilePath,"r");
+//            try {
+                _DBFReader = new utils.ByteBufferEndian(_FilePath);
+                //_DBFReader = new utils.RandomAccessEndian(_FilePath,"r");
                 _Open = true;
-            } catch (FileNotFoundException ex) {
-                System.out.println("The File: " + _FilePath + " could not be found");
-                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
-            }
+//            } catch (FileNotFoundException ex) {
+//                System.out.println("The File: " + _FilePath + " could not be found");
+//                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+//            }
         }
     }
     @Override
@@ -313,160 +314,160 @@ public class DBFReader extends AbstractReader{
         }
     }
     private void WriteNewHeader(String NewColumnName, int NewFieldLength, String ColumnType, int newFieldNumDecimals, java.io.RandomAccessFile Writer){
-        try {
-            UpdateEditDate(Writer);
-            Writer.writeInt(Integer.reverseBytes(_NumberOfRows));
-            Writer.writeShort(Short.reverseBytes((short)(_FirstDataRecordIndex + 32)));//needs to be little endian
-            Writer.writeShort(Short.reverseBytes((short)(_RecordLength + NewFieldLength)));//needs to be little endian
-            _DBFReader.seek(0);
-            _DBFReader.seek(12);
-            //the next 20 bytes are reserved.
-            byte reservedBytes[] = new byte[20];
-            _DBFReader.read(reservedBytes,0,20);
-            //_DBFReader.skipBytes(1);
-            //System.out.println(_DBFReader.ReadString(0, 11));
-            Writer.write(reservedBytes);
-            //now write the new header infos.
-            for(int i = 0; i < _ColumnNames.length;i++){
-                Writer.writeChars(PadString(_ColumnNames[i],10));//must be the next 11 bytes
-                //Writer.skipBytes(1);
-                switch(_ColumnTypes[i]){
-                    case STRING:
-                        Writer.writeChars("C");
-                        break;
-                    case INT:
-                        Writer.writeChars("N");
-                        break;
-                    case BOOLEAN:
-                        Writer.writeChars("L");
-                        break;
-                    case DOUBLE:
-                        Writer.writeChars("F");
-                        break;
-                    case DATE:
-                        Writer.writeChars("D");
-                        break;
-                    default:
-                        Writer.writeChars("C");
-                        break;
-                }
-                _DBFReader.skipBytes(12);//columnName and column type
-                reservedBytes = new byte[4];//reserved bytes...
-                _DBFReader.read(reservedBytes,0,4);//position needs to be set properly...
-                Writer.write(reservedBytes, 0, 4);//next four bytes are reserved
-                Writer.write(_Lengths[i]);//length (as a byte actually).
-                _DBFReader.skipBytes(1);//the length byte
-                Writer.write(_DBFReader.read());//number of decimals //directly from the bytestream
-                reservedBytes = new byte[14];
-                _DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
-                Writer.write(reservedBytes,0,14); 
-            }
-            //now write out the info for the new column
-            Writer.writeChars(PadString(NewColumnName,10));//must be the next 10 bytes
-            Writer.writeChars(ColumnType);//must be the right string, and must be 2 bytes.
-            Writer.skipBytes(4);//next four bytes are reserved
-            Writer.write(NewFieldLength);//length (as a byte actually).
-            Writer.write(0);//number of decimals//how do i determine number of decimals?
-            Writer.skipBytes(14);//_DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
-            System.out.println("Finished with header");
-        } catch (IOException ex) {
-            Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
+//        try {
+//            UpdateEditDate(Writer);
+//            Writer.writeInt(Integer.reverseBytes(_NumberOfRows));
+//            Writer.writeShort(Short.reverseBytes((short)(_FirstDataRecordIndex + 32)));//needs to be little endian
+//            Writer.writeShort(Short.reverseBytes((short)(_RecordLength + NewFieldLength)));//needs to be little endian
+//            _DBFReader.seek(0);
+//            _DBFReader.seek(12);
+//            //the next 20 bytes are reserved.
+//            byte reservedBytes[] = new byte[20];
+//            _DBFReader.read(reservedBytes,0,20);
+//            //_DBFReader.skipBytes(1);
+//            //System.out.println(_DBFReader.ReadString(0, 11));
+//            Writer.write(reservedBytes);
+//            //now write the new header infos.
+//            for(int i = 0; i < _ColumnNames.length;i++){
+//                Writer.writeChars(PadString(_ColumnNames[i],10));//must be the next 11 bytes
+//                //Writer.skipBytes(1);
+//                switch(_ColumnTypes[i]){
+//                    case STRING:
+//                        Writer.writeChars("C");
+//                        break;
+//                    case INT:
+//                        Writer.writeChars("N");
+//                        break;
+//                    case BOOLEAN:
+//                        Writer.writeChars("L");
+//                        break;
+//                    case DOUBLE:
+//                        Writer.writeChars("F");
+//                        break;
+//                    case DATE:
+//                        Writer.writeChars("D");
+//                        break;
+//                    default:
+//                        Writer.writeChars("C");
+//                        break;
+//                }
+//                _DBFReader.skipBytes(12);//columnName and column type
+//                reservedBytes = new byte[4];//reserved bytes...
+//                _DBFReader.read(reservedBytes,0,4);//position needs to be set properly...
+//                Writer.write(reservedBytes, 0, 4);//next four bytes are reserved
+//                Writer.write(_Lengths[i]);//length (as a byte actually).
+//                _DBFReader.skipBytes(1);//the length byte
+//                Writer.write(_DBFReader.read());//number of decimals //directly from the bytestream
+//                reservedBytes = new byte[14];
+//                _DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
+//                Writer.write(reservedBytes,0,14); 
+//            }
+//            //now write out the info for the new column
+//            Writer.writeChars(PadString(NewColumnName,10));//must be the next 10 bytes
+//            Writer.writeChars(ColumnType);//must be the right string, and must be 2 bytes.
+//            Writer.skipBytes(4);//next four bytes are reserved
+//            Writer.write(NewFieldLength);//length (as a byte actually).
+//            Writer.write(0);//number of decimals//how do i determine number of decimals?
+//            Writer.skipBytes(14);//_DBFReader.read(reservedBytes,0,14);//next fourteen bytes are reserved
+//            System.out.println("Finished with header");
+//        } catch (IOException ex) {
+//            Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+//        }
+//        
     }
     @Override
     public void AddColumn(String ColumnName, int[] data) {
-        if(ColumnName.length()<=10){
-            if(java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName)==-1){
-                if(_NumberOfRows==data.length){
-                    if(!IsOpen()){Open();}//so that we can read the data.
-                    java.io.RandomAccessFile Writer = null;
-                    try {
-                        //create a tmp file to write everythign into.
-                        java.io.File TMP = java.io.File.createTempFile("TMP", ".dbf");
-                        Writer = new java.io.RandomAccessFile(TMP,"rwd");
-                        int newfieldlength = Integer.toString(Integer.MIN_VALUE).length();//negatives?
-                        WriteNewHeader(ColumnName, newfieldlength,"C",0,Writer);
-                        //write out all rows.
-                        _DBFReader.seek(0);
-                        _DBFReader.seek(_FirstDataRecordIndex + 1);
-                        byte[] ExistingData = new byte[_RecordLength];
-                        System.out.println("WritingData");
-                        for(int i = 0; i<data.length;i++){
-                            _DBFReader.read(ExistingData,0,_RecordLength);
-                            Writer.write(ExistingData);
-                            Writer.writeChars(PadString(Integer.toString(data[i]),newfieldlength));
-                        }
-                        if(IsOpen()){Close();}//delete old file, copy tmp file then delete old tmp file
-                        Writer.close();
-                        java.io.File currentFile = new java.io.File(_FilePath);
-                        System.out.println("Complete,now deleting and copying.");
-                        currentFile.delete();
-                        java.nio.file.Files.copy(TMP.toPath(), currentFile.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        TMP.delete();
-                        Initialize();
-                    } catch (IOException ex) {
-                        if(Writer!=null){
-                            try {
-                                Writer.close();
-                            } catch (IOException ex1) {
-                                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex1);
-                            }
-                        }
-                        Close();
-                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }//not the right number of rows.
-            }//name already existis
-        }//name too long
+//        if(ColumnName.length()<=10){
+//            if(java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName)==-1){
+//                if(_NumberOfRows==data.length){
+//                    if(!IsOpen()){Open();}//so that we can read the data.
+//                    java.io.RandomAccessFile Writer = null;
+//                    try {
+//                        //create a tmp file to write everythign into.
+//                        java.io.File TMP = java.io.File.createTempFile("TMP", ".dbf");
+//                        Writer = new java.io.RandomAccessFile(TMP,"rwd");
+//                        int newfieldlength = Integer.toString(Integer.MIN_VALUE).length();//negatives?
+//                        WriteNewHeader(ColumnName, newfieldlength,"C",0,Writer);
+//                        //write out all rows.
+//                        _DBFReader.seek(0);
+//                        _DBFReader.seek(_FirstDataRecordIndex + 1);
+//                        byte[] ExistingData = new byte[_RecordLength];
+//                        System.out.println("WritingData");
+//                        for(int i = 0; i<data.length;i++){
+//                            _DBFReader.read(ExistingData,0,_RecordLength);
+//                            Writer.write(ExistingData);
+//                            Writer.writeChars(PadString(Integer.toString(data[i]),newfieldlength));
+//                        }
+//                        if(IsOpen()){Close();}//delete old file, copy tmp file then delete old tmp file
+//                        Writer.close();
+//                        java.io.File currentFile = new java.io.File(_FilePath);
+//                        System.out.println("Complete,now deleting and copying.");
+//                        currentFile.delete();
+//                        java.nio.file.Files.copy(TMP.toPath(), currentFile.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+//                        TMP.delete();
+//                        Initialize();
+//                    } catch (IOException ex) {
+//                        if(Writer!=null){
+//                            try {
+//                                Writer.close();
+//                            } catch (IOException ex1) {
+//                                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex1);
+//                            }
+//                        }
+//                        Close();
+//                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+//                    }
+//                }//not the right number of rows.
+//            }//name already existis
+//        }//name too long
     }
     @Override
     
     public void AddColumn(String ColumnName, String[] data) {
-        if(ColumnName.length()<=10){
-            if(java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName)==-1){
-                if(_NumberOfRows==data.length){
-                    if(!IsOpen()){Open();}//so that we can read the data.
-                    java.io.RandomAccessFile Writer = null;
-                    try {
-                        //create a tmp file to write everythign into.
-                        java.io.File TMP = java.io.File.createTempFile("TMP", ".dbf");
-                        Writer = new java.io.RandomAccessFile(TMP,"rwd");
-                        int newfieldlength = 0;
-                        for(int i = 0; i<data.length;i++){
-                            if(data[i].length()>newfieldlength){newfieldlength = data[i].length();}
-                        }
-                        WriteNewHeader(ColumnName, newfieldlength,"C",0,Writer);
-                        //write out all rows.
-                        _DBFReader.seek(0);
-                        _DBFReader.seek(_FirstDataRecordIndex + 1);
-                        byte[] ExistingData = new byte[_RecordLength];
-                        for(int i = 0; i<data.length;i++){
-                            _DBFReader.read(ExistingData,0,_RecordLength);
-                            Writer.write(ExistingData);
-                            Writer.writeChars(PadString(data[i],newfieldlength));
-                        }
-                        if(IsOpen()){Close();}//delete old file, copy tmp file then delete old tmp file
-                        Writer.close();
-                        java.io.File currentFile = new java.io.File(_FilePath);
-                        currentFile.delete();
-                        java.nio.file.Files.copy(TMP.toPath(), currentFile.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        TMP.delete();
-                        Initialize();
-                    } catch (IOException ex) {
-                        if(Writer!=null){
-                            try {
-                                Writer.close();
-                            } catch (IOException ex1) {
-                                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex1);
-                            }
-                        }
-                        Close();
-                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }//not the right number of rows.
-            }//name already existis
-        }//name too long
+//        if(ColumnName.length()<=10){
+//            if(java.util.Arrays.asList(_ColumnNames).indexOf(ColumnName)==-1){
+//                if(_NumberOfRows==data.length){
+//                    if(!IsOpen()){Open();}//so that we can read the data.
+//                    java.io.RandomAccessFile Writer = null;
+//                    try {
+//                        //create a tmp file to write everythign into.
+//                        java.io.File TMP = java.io.File.createTempFile("TMP", ".dbf");
+//                        Writer = new java.io.RandomAccessFile(TMP,"rwd");
+//                        int newfieldlength = 0;
+//                        for(int i = 0; i<data.length;i++){
+//                            if(data[i].length()>newfieldlength){newfieldlength = data[i].length();}
+//                        }
+//                        WriteNewHeader(ColumnName, newfieldlength,"C",0,Writer);
+//                        //write out all rows.
+//                        _DBFReader.seek(0);
+//                        _DBFReader.seek(_FirstDataRecordIndex + 1);
+//                        byte[] ExistingData = new byte[_RecordLength];
+//                        for(int i = 0; i<data.length;i++){
+//                            _DBFReader.read(ExistingData,0,_RecordLength);
+//                            Writer.write(ExistingData);
+//                            Writer.writeChars(PadString(data[i],newfieldlength));
+//                        }
+//                        if(IsOpen()){Close();}//delete old file, copy tmp file then delete old tmp file
+//                        Writer.close();
+//                        java.io.File currentFile = new java.io.File(_FilePath);
+//                        currentFile.delete();
+//                        java.nio.file.Files.copy(TMP.toPath(), currentFile.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+//                        TMP.delete();
+//                        Initialize();
+//                    } catch (IOException ex) {
+//                        if(Writer!=null){
+//                            try {
+//                                Writer.close();
+//                            } catch (IOException ex1) {
+//                                Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex1);
+//                            }
+//                        }
+//                        Close();
+//                        Logger.getLogger(DBFReader.class.getName()).log(Level.SEVERE, null, ex);
+//                    }
+//                }//not the right number of rows.
+//            }//name already existis
+//        }//name too long
     }
     @Override
     public void AddColumn(String ColumnName, double[] data) {

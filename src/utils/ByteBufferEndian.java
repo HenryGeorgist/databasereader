@@ -2,8 +2,8 @@ package utils;
 
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -15,69 +15,136 @@ import java.nio.channels.SeekableByteChannel;
  *
  * @author Will_and_Sara
  */
-public class ByteBufferEndian implements java.nio.channels.SeekableByteChannel {
-    private ByteBuffer _Buffer;
-    //private StringBuffer bla;
-    private boolean SetPosition(int position){
-        try{
-            _Buffer = (ByteBuffer)_Buffer.position(position);
-            
-            return true;
-        }catch(IllegalArgumentException ex){
-            //position is less than mark.
-            //how do i advance the position to the place i want?
-            _Buffer.rewind();
-            if(position>_Buffer.remaining()){
-                //must need to move mark as far forward as i can iteratively?
-            }else{
-                _Buffer.position(position);
-                return true;
-            }
-                    
-            return false;
+public class ByteBufferEndian{
+    private java.nio.channels.SeekableByteChannel _SeekableChannel;
+    public ByteBufferEndian(String filePath){
+        try {
+            _SeekableChannel = java.nio.file.Files.newByteChannel(java.nio.file.Paths.get(filePath), java.util.EnumSet.of(java.nio.file.StandardOpenOption.READ));
+        } catch (IOException ex) {
+            Logger.getLogger(ByteBufferEndian.class.getName()).log(Level.SEVERE, null, ex);
         }
-
     }
-    @Override
-    public int read(ByteBuffer dst) throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+     /**
+     * Reads floating point type stored in little endian (see readFloat() for big endian)
+     * @return float value translated from little endian
+     * @throws IOException if an IO error occurs
+     */
+    public final float readLittleFloat() throws IOException {
+        return Float.intBitsToFloat(readLittleInt());
+    }    
+    /**
+     * Reads double precision floating point type stored in little endian (see readDouble() for big endian)
+     * @return double precision float value translated from little endian
+     * @throws IOException if an IO error occurs
+     */    
+    public final double readLittleDouble() throws IOException {
+        return Double.longBitsToDouble(readLittleLong());
     }
-
-    @Override
-    public int write(ByteBuffer src) throws IOException {
-        //bla = new StringBuffer();
-        //bla.
-        _Buffer.
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    /**
+     * Reads short type stored in little endian (see readShort() for big endian)
+     * @return short value translated from little endian
+     * @throws IOException if an IO error occurs
+     */    
+    public final short readLittleShort() throws IOException {
+        java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.allocate(2);
+        _SeekableChannel.read(byteBuffer);
+    return (short)((byteBuffer.get(1) & 0xff) << 8 | (byteBuffer.get(0) & 0xff));
     }
-
-    @Override
-    public long position() throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    /**
+     * Reads char (16-bits) type stored in little endian (see readChar() for big endian)
+     * @return char value translated from little endian
+     * @throws IOException if an IO error occurs
+     */    
+    public final char readLittleChar() throws IOException {
+        java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.allocate(2);
+        _SeekableChannel.read(byteBuffer);
+        return (char)((byteBuffer.get(1) & 0xff) << 8 | (byteBuffer.get(0) & 0xff));
+    }    
+    /**
+     * Reads integer type stored in little endian (see readInt() for big endian)
+     * @return integer value translated from little endian
+     * @throws IOException if an IO error occurs
+     */        
+    public final int readLittleInt() throws IOException {
+        java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.allocate(4);
+        _SeekableChannel.read(byteBuffer);
+        return (byteBuffer.get(3)) << 24 | (byteBuffer.get(2) & 0xff) << 16 |
+            (byteBuffer.get(1) & 0xff) << 8 | (byteBuffer.get(0) & 0xff);
     }
-
-    @Override
-    public SeekableByteChannel position(long newPosition) throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    /**
+     * Reads long type stored in little endian (see readLong() for big endian)
+     * @return long value translated from little endian
+     * @throws IOException if an IO error occurs
+     */        
+    public final long readLittleLong() throws IOException {
+        java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.allocate(8);
+        _SeekableChannel.read(byteBuffer);
+        return (long)(byteBuffer.get(7)) << 56 | (long)(byteBuffer.get(6) & 0xff) << 48 |
+            (long)(byteBuffer.get(5) & 0xff) << 40 | (long)(byteBuffer.get(4) & 0xff) << 32 |
+            (long)(byteBuffer.get(3) & 0xff) << 24 | (long)(byteBuffer.get(2) & 0xff) << 16 |
+            (long)(byteBuffer.get(2) & 0xff) <<  8 | (long)(byteBuffer.get(0) & 0xff);
     }
-
-    @Override
-    public long size() throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    /**
+     * Reads unsigned short type stored in little endian (see readUnsignedShort() for big endian)
+     * @return integer value representing unsigned short value translated from little endian
+     * @throws IOException if an IO error occurs
+     */        
+    public final int readLittleUnsignedShort() throws IOException {
+        java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.allocate(2);
+        _SeekableChannel.read(byteBuffer);
+        return ((byteBuffer.get(1) & 0xff) << 8 | (byteBuffer.get(0) & 0xff));
     }
-
-    @Override
-    public SeekableByteChannel truncate(long size) throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    /**
+     * Reads a sequence of bytes based on the start position (offset from current position) and the end position, and converts the byte
+     * array to a string skipping bytes of 0.
+     * @param start the offset byte position from the current byte position in the RandomAccessFileStream
+     * @param end the end byte position from the current byte position in the RandomAccessFileStream
+     * @return a string 
+     * @throws IOException
+     */
+    public final String ReadString(int start, int end) throws IOException{
+        java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.allocate(end-start);
+        if(start!=0){_SeekableChannel.position(_SeekableChannel.position() + start);}//i think this is like skip bytes...
+        _SeekableChannel.read(byteBuffer);
+        java.lang.StringBuilder result = new java.lang.StringBuilder();
+        for(int i = start; i<end;i++){
+            if(byteBuffer.get(i) == 0){
+                //trimming all 0 bytes.
+            }else{
+                result.append((char)byteBuffer.get(i));
+            }
+        }
+        return result.toString();
     }
-
-    @Override
-    public boolean isOpen() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public void close() throws IOException{
+        _SeekableChannel.close();
     }
-
-    @Override
-    public void close() throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public int seek(int position){
+        try {
+            _SeekableChannel.position(position);
+            return position;
+        } catch (IOException ex) {
+            Logger.getLogger(ByteBufferEndian.class.getName()).log(Level.SEVERE, null, ex);
+            return 0;
+        }
+    }
+    public int skipBytes(int numbytes){
+        try {
+            _SeekableChannel.position(_SeekableChannel.position()+numbytes);
+            return numbytes;
+        } catch (IOException ex) {
+            Logger.getLogger(ByteBufferEndian.class.getName()).log(Level.SEVERE, null, ex);
+            return -1;
+        }
+    }
+    public byte read(){
+        try {
+            java.nio.ByteBuffer dst = java.nio.ByteBuffer.allocate(1);
+            _SeekableChannel.read(dst);
+            return dst.get(0);
+        } catch (IOException ex) {
+            Logger.getLogger(ByteBufferEndian.class.getName()).log(Level.SEVERE, null, ex);
+            return (byte)0;
+        }
     }
 }
