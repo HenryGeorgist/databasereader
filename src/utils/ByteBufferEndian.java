@@ -104,17 +104,13 @@ public class ByteBufferEndian{
      */
     public final String ReadString(int start, int end) throws IOException{
         java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.allocate(end-start);
-        if(start!=0){_SeekableChannel.position(_SeekableChannel.position() + start);}//i think this is like skip bytes...
+        if(start!=0){seek(start);}
         _SeekableChannel.read(byteBuffer);
-        java.lang.StringBuilder result = new java.lang.StringBuilder();
+        final char[] result = new char[end-start];
         for(int i = start; i<end;i++){
-            if(byteBuffer.get(i) == 0){
-                //trimming all 0 bytes.
-            }else{
-                result.append((char)byteBuffer.get(i));
-            }
+            result[i] = ((char)byteBuffer.get(i));
         }
-        return result.toString();
+        return new String(result);
     }
     public void close() throws IOException{
         _SeekableChannel.close();
@@ -146,5 +142,18 @@ public class ByteBufferEndian{
             Logger.getLogger(ByteBufferEndian.class.getName()).log(Level.SEVERE, null, ex);
             return (byte)0;
         }
+    }
+    public int read(byte[] bytes, int offset, int end) {
+        
+        try {
+            java.nio.ByteBuffer dst = java.nio.ByteBuffer.allocate(bytes.length);
+            _SeekableChannel.read(dst);
+            bytes = dst.array();
+            return bytes.length;
+        } catch (IOException ex) {
+            Logger.getLogger(ByteBufferEndian.class.getName()).log(Level.SEVERE, null, ex);
+            return -1;
+        }
+        
     }
 }
